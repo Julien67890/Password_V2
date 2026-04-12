@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mot de Passe - IA Édition</title>
+  
+  <!-- PWA -->
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mot de Passe">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- WebLLM SDK -->
+  <script type="module">
+    import { CreateMLCEngine } from "https://esm.run/@mlc-ai/web-llm";
+    window.CreateMLCEngine = CreateMLCEngine;
+  </script>
+</head>
+<body>
+
+<!-- Écran HOME -->
+<div id="screen-home" class="screen active">
+  <div class="home-header">
+    <div class="trophy-icon">🏆</div>
+    <h1>MOT DE PASSE</h1>
+    <p class="subtitle">LE JEU DES INDICES · IA ÉDITION</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat">
+      <span class="stat-label">🏆 Record</span>
+      <span class="stat-value" id="best-score">0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">🎯 Parties</span>
+      <span class="stat-value" id="total-games">0</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>TON RÔLE DANS LA MANCHE</h3>
+    <div class="role-grid">
+      <button id="btn-guesser" class="role-btn active">
+        <span class="role-icon">🧠</span>
+        <span class="role-title">Je devine</span>
+        <span class="role-desc">L'IA te donne des indices</span>
+      </button>
+      <button id="btn-hinter" class="role-btn">
+        <span class="role-icon">💡</span>
+        <span class="role-title">Je fais deviner</span>
+        <span class="role-desc">Tu donnes des indices à l'IA</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>THÈME</h3>
+    <div id="theme-grid" class="theme-grid"></div>
+  </div>
+
+  <div class="section">
+    <h3>PARAMÈTRES</h3>
+    
+    <div class="setting">
+      <label>Mots par manche</label>
+      <div class="toggle-group">
+        <button class="toggle-option" data-words="3">3</button>
+        <button class="toggle-option active" data-words="5">5</button>
+        <button class="toggle-option" data-words="7">7</button>
+      </div>
+    </div>
+
+    <div class="setting">
+      <label>Durée de la manche</label>
+      <div class="toggle-group">
+        <button class="toggle-option active" data-duration="30">30s</button>
+        <button class="toggle-option" data-duration="60">1 min</button>
+        <button class="toggle-option" data-duration="120">2 min</button>
+        <button class="toggle-option" data-duration="180">3 min</button>
+        <button class="toggle-option" data-duration="300">5 min</button>
+      </div>
+    </div>
+
+    <div class="setting">
+      <label for="voice-toggle">
+        <span>🎙️ Mode vocal</span>
+        <small id="voice-support-badge">Vérification...</small>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="voice-toggle" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <!-- NOUVEAU: Toggle pour Llama 3.2 -->
+    <div class="setting">
+      <label for="ai-toggle">
+        <span>🧠 Llama 3.2 (IA locale)</span>
+        <small id="ai-status">Désactivé</small>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="ai-toggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <button id="btn-start" class="btn-primary">C'EST PARTI ! 🚀</button>
+</div>
+
+<!-- Écran GAME -->
+<div id="screen-game" class="screen">
+  <div class="game-header">
+    <button id="btn-home" class="btn-icon">🏠</button>
+    <div class="game-info">
+      <div class="theme-badge" id="header-theme">🎲 Aléatoire</div>
+      <div class="score-display">
+        <span id="live-score">0</span> pts
+      </div>
+    </div>
+    <button id="btn-swap" class="btn-icon">🔄</button>
+  </div>
+
+  <div class="game-stats">
+    <div class="stat-pill" id="manche-label">Manche 1</div>
+    <div class="stat-pill" id="streak-badge" style="display:none;">🔥 Série: 0</div>
+    <div class="stat-pill" id="word-progress">0/5</div>
+  </div>
+
+  <div id="timer-bar-wrap" class="timer-bar-wrap">
+    <div id="timer-bar" class="timer-bar"></div>
+    <span id="timer-text" class="timer-text">30s</span>
+  </div>
+
+  <div id="secret-card" class="secret-card">
+    <div id="secret-meta" class="secret-meta">Mot secret</div>
+    <div id="secret-word" class="secret-word">PARIS</div>
+    <div id="secret-role-hint" class="secret-role-hint">Fais deviner ce mot à l'IA</div>
+  </div>
+
+  <div id="queue-bar" class="queue-bar"></div>
+
+  <div id="zone-guesser" class="zone-guesser">
+    <div id="ia-clue-display" class="ia-clue-display">
+      <div class="ia-label">Indice de l'IA</div>
+      <div id="ia-clue-text" class="ia-clue-text">●●●●●</div>
+    </div>
+
+    <div class="guess-input-group">
+      <input type="text" id="input-guess" class="guess-input" placeholder="Ta réponse..." autocomplete="off">
+      <button id="btn-guess" class="btn-action">✓</button>
+      <button id="btn-mic-guess" class="btn-mic" style="display:none;">🎙️</button>
+    </div>
+
+    <div class="action-buttons">
+      <button id="btn-next-clue" class="btn-secondary">Indice suivant</button>
+      <button id="btn-pass-guesser" class="btn-ghost">Passer ⏭</button>
+    </div>
+  </div>
+
+  <div id="zone-hinter" class="zone-hinter" style="display:none;">
+    <div id="ia-guess-panel" class="ia-guess-panel">
+      <div class="ia-label">L'IA propose</div>
+      <div class="ia-guess-row">
+        <div id="ia-guess-word" class="ia-guess-word">●●●●●</div>
+        <div id="ia-guess-temp" class="ia-guess-temp"></div>
+      </div>
+    </div>
+
+    <div class="hint-input-group">
+      <input type="text" id="input-hint" class="hint-input" placeholder="Ton indice..." autocomplete="off">
+      <button id="btn-hint" class="btn-action">Envoyer</button>
+      <button id="btn-mic-hint" class="btn-mic" style="display:none;">🎙️</button>
+    </div>
+
+    <div class="action-buttons">
+      <button id="btn-pass-hinter" class="btn-ghost">Passer ⏭</button>
+    </div>
+  </div>
+
+  <div id="history" class="history"></div>
+</div>
+
+<!-- Écran RESULT -->
+<div id="screen-result" class="screen">
+  <div class="result-container">
+    <div id="result-emoji" class="result-emoji">🎉</div>
+    <h2 id="result-title" class="result-title">Manche terminée !</h2>
+    <p id="result-subtitle" class="result-subtitle">Bravo !</p>
+
+    <div class="result-stats">
+      <div class="result-stat">
+        <div class="result-stat-value" id="res-score">0</div>
+        <div class="result-stat-label">Points</div>
+      </div>
+      <div class="result-stat">
+        <div class="result-stat-value" id="res-found">0/5</div>
+        <div class="result-stat-label">Réussis</div>
+      </div>
+      <div class="result-stat">
+        <div class="result-stat-value" id="res-streak">🔥 0</div>
+        <div class="result-stat-label">Série</div>
+      </div>
+    </div>
+
+    <div id="result-words" class="result-words"></div>
+
+    <div class="result-actions">
+      <button id="btn-next-manche" class="btn-primary">Manche suivante 🚀</button>
+      <button id="btn-home-result" class="btn-secondary">Menu principal</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- Scripts -->
+<script src="script.js"></script>
+<script src="script_llama.js"></script>
+
+<!-- Service Worker -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('✅ Service Worker enregistré'))
+      .catch(err => console.log('❌ SW Error:', err));
+  });
+}
+</script>
+
+</body>
+</html>
